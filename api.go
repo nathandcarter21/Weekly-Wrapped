@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -29,12 +30,26 @@ func Serve() {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	if _, err := readCookie(r); err != nil {
+	accessToken, err := readCookie(w, r)
+	if err != nil {
 		authRedirect(w, r)
 		return
 	}
 
-	tmplPath := filepath.Join("templates/home.html")
+	userID, err := getUser(accessToken.AccessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmplPath := ""
+	dbUser, err := getDBUser(db, userID)
+
+	if userID == "" || dbUser == "" || err != nil {
+		tmplPath = filepath.Join("templates/signup.html")
+	} else {
+		tmplPath = filepath.Join("templates/home.html")
+	}
+
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
 		http.Error(w, "Error parsing template", http.StatusInternalServerError)
@@ -77,7 +92,7 @@ func codeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func signUpHandler(w http.ResponseWriter, r *http.Request) {
-	accessToken, err := readCookie(r)
+	accessToken, err := readCookie(w, r)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,6 +106,8 @@ func signUpHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Fprintf(w, `<p>Stay Tuned for Updates</p>`)
 }
 
 func authRedirect(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +127,7 @@ func authRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 
-func readCookie(r *http.Request) (*AccessToken, error) {
+func readCookie(w http.ResponseWriter, r *http.Request) (*AccessToken, error) {
 	cookie, err := r.Cookie("accessToken")
 	if err != nil {
 		return nil, errors.New("no access token")
@@ -123,16 +140,22 @@ func readCookie(r *http.Request) (*AccessToken, error) {
 		return nil, err
 	}
 
-	var accessToken AccessToken
-
+	var accessToken *AccessToken
 	err = json.Unmarshal([]byte(value), &accessToken)
 	if err != nil {
 		return nil, err
 	}
 
-	//! refresh access token
+	if accessToken.ExpiresAt.Before(time.Now()) {
+		accessToken, err = refreshAccessToken(*accessToken)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	return &accessToken, nil
+		setCookie(w, *accessToken)
+	}
+
+	return accessToken, nil
 }
 
 func setCookie(w http.ResponseWriter, accessToken AccessToken) error {
@@ -202,6 +225,44 @@ func requestAccessToken(code string) (*AccessToken, error) {
 	accessToken.ExpiresAt = time.Now().Add(time.Duration(accessToken.ExpiresIn-100) * time.Second)
 
 	return &accessToken, nil
+}
+
+func refreshAccessToken(prevToken AccessToken) (*AccessToken, error) {
+	u := url.URL{
+		Scheme: "https",
+		Host:   "accounts.spotify.com",
+		Path:   "/api/token",
+	}
+
+	bytesAuth := []byte(os.Getenv("SPOTIFY_CLIENT") + ":" + os.Getenv("SPOTIFY_SECRET"))
+	encodedAuth := base64.StdEncoding.EncodeToString(bytesAuth)
+	headers := map[string]string{
+		"Authorization": "Basic " + encodedAuth,
+		"Content-Type":  "application/x-www-form-urlencoded",
+	}
+
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {prevToken.RefreshToken},
+	}
+
+	body := bytes.NewBufferString(data.Encode())
+
+	res, err := makeApiCall("POST", u, headers, body)
+	if err != nil {
+		return nil, err
+	}
+
+	var newToken AccessToken
+	err = json.Unmarshal(res, &newToken)
+	if err != nil {
+		return nil, err
+	}
+
+	newToken.ExpiresAt = time.Now().Add(time.Duration(newToken.ExpiresIn-100) * time.Second)
+	newToken.RefreshToken = prevToken.RefreshToken
+
+	return &newToken, nil
 }
 
 func getUser(accessToken string) (string, error) {

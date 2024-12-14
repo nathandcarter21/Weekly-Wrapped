@@ -38,3 +38,18 @@ func signUp(db *sql.DB, spotifyId, refreshToken string) error {
 
 	return nil
 }
+
+func getDBUser(db *sql.DB, spotifyId string) (string, error) {
+	query := `SELECT spotify_id FROM users WHERE spotify_id = ?`
+
+	var userID string
+	err := db.QueryRow(query, spotifyId).Scan(&userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("user with ID %s not found", userID)
+		}
+		return "", fmt.Errorf("error querying user: %w", err)
+	}
+
+	return userID, nil
+}

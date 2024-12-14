@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hello World</title>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+</head>
+<body>
+    <h1>Weekly Wrapped</h1>
+
+    <div id="button-container">
+        <button 
+        hx-get="/signup" 
+        hx-target="#button-container" 
+        hx-trigger="click">
+        Sign Up For Weekly Wraps
+        </button>
+    </div>
+
+</body>
+</html>
