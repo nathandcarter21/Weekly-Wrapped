@@ -147,7 +147,7 @@ func readCookie(w http.ResponseWriter, r *http.Request) (*AccessToken, error) {
 	}
 
 	if accessToken.ExpiresAt.Before(time.Now()) {
-		accessToken, err = refreshAccessToken(*accessToken)
+		accessToken, err = refreshAccessToken(accessToken.RefreshToken)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func requestAccessToken(code string) (*AccessToken, error) {
 	return &accessToken, nil
 }
 
-func refreshAccessToken(prevToken AccessToken) (*AccessToken, error) {
+func refreshAccessToken(refreshToken string) (*AccessToken, error) {
 	u := url.URL{
 		Scheme: "https",
 		Host:   "accounts.spotify.com",
@@ -243,7 +243,7 @@ func refreshAccessToken(prevToken AccessToken) (*AccessToken, error) {
 
 	data := url.Values{
 		"grant_type":    {"refresh_token"},
-		"refresh_token": {prevToken.RefreshToken},
+		"refresh_token": {refreshToken},
 	}
 
 	body := bytes.NewBufferString(data.Encode())
@@ -260,7 +260,7 @@ func refreshAccessToken(prevToken AccessToken) (*AccessToken, error) {
 	}
 
 	newToken.ExpiresAt = time.Now().Add(time.Duration(newToken.ExpiresIn-100) * time.Second)
-	newToken.RefreshToken = prevToken.RefreshToken
+	newToken.RefreshToken = refreshToken
 
 	return &newToken, nil
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/joho/godotenv"
+	"github.com/robfig/cron"
 )
 
 var db *sql.DB
@@ -18,5 +19,14 @@ func main() {
 	db = dbConnect()
 	defer db.Close()
 
-	Serve()
+	c := cron.New()
+	err = c.AddFunc("0 17 * * 5", loadData)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.Start()
+	go Serve()
+
+	select {}
 }

@@ -16,3 +16,11 @@ type AccessToken struct {
 type SpotifyID struct {
 	ID string `json:"id"`
 }
+
+type TopItems struct {
+	Items []Item `json:"items"`
+}
+
+type Item struct {
+	Name string `json:"name"`
+}
