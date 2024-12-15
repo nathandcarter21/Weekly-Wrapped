@@ -22,6 +22,7 @@ func Serve() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/code", codeHandler)
 	http.HandleFunc("/signup", signUpHandler)
+	http.HandleFunc("/getWrapped", getWrappedHandler)
 
 	err := http.ListenAndServe(":3000", nil)
 	if err != nil {
@@ -46,8 +47,28 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if userID == "" || dbUser == "" || err != nil {
 		tmplPath = filepath.Join("templates/signup.html")
-	} else {
-		tmplPath = filepath.Join("templates/home.html")
+		tmpl, err := template.ParseFiles(tmplPath)
+		if err != nil {
+			http.Error(w, "Error parsing template", http.StatusInternalServerError)
+			return
+		}
+
+		err = tmpl.Execute(w, nil)
+		if err != nil {
+			http.Error(w, "Error executing template", http.StatusInternalServerError)
+		}
+	}
+
+	tmplPath = filepath.Join("templates/home.html")
+
+	wrappedDates, err := getWrappedDates(db, dbUser)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dates := []string{}
+	for _, d := range wrappedDates {
+		dates = append(dates, d.Format("01/02/2006"))
 	}
 
 	tmpl, err := template.ParseFiles(tmplPath)
@@ -56,7 +77,11 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, struct {
+		Dates []string
+	}{
+		Dates: dates,
+	})
 	if err != nil {
 		http.Error(w, "Error executing template", http.StatusInternalServerError)
 	}
@@ -108,6 +133,46 @@ func signUpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, `<p>Stay Tuned for Updates</p>`)
+}
+
+func getWrappedHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, err := readCookie(w, r)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	userID, err := getUser(accessToken.AccessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dbUser, err := getDBUser(db, userID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	date := r.FormValue("date")
+	dateParse, _ := time.Parse("01/02/2006", date)
+	artists, songs, err := getWrapped(db, dbUser, dateParse.Format("2006-01-02"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmplPath := filepath.Join("templates/wrapped.html")
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = tmpl.Execute(w, struct {
+		Artists []string
+		Songs   []string
+	}{
+		Artists: artists,
+		Songs:   songs,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func authRedirect(w http.ResponseWriter, r *http.Request) {

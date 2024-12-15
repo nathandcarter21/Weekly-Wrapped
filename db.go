@@ -11,7 +11,7 @@ import (
 )
 
 func dbConnect() *sql.DB {
-	dsn := "root:password@tcp(127.0.0.1:3306)/weekly-wrapped"
+	dsn := "root:password@tcp(127.0.0.1:3306)/weekly-wrapped?parseTime=true"
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -94,4 +94,49 @@ func addWrapped(db *sql.DB, spotifyID string, artists, songs []string) error {
 		return err
 	}
 	return nil
+}
+
+func getWrappedDates(db *sql.DB, spotifyID string) ([]time.Time, error) {
+	query := `select date from wraps where spotify_id = ?`
+
+	rows, err := db.Query(query, spotifyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := []time.Time{}
+	for rows.Next() {
+		var date time.Time
+		err := rows.Scan(&date)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, date)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func getWrapped(db *sql.DB, spotifyId string, date string) (artists, songs []string, err error) {
+	query := `select artists, songs from wraps where spotify_id = ? and date = ?`
+	var artistJson string
+	var songJson string
+	err = db.QueryRow(query, spotifyId, date).Scan(&artistJson, &songJson)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, err
+		}
+		return nil, nil, err
+	}
+
+	json.Unmarshal([]byte(artistJson), &artists)
+	json.Unmarshal([]byte(songJson), &songs)
+
+	return
 }

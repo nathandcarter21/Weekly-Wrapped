@@ -6,5 +6,15 @@
 </head>
 <body>
     <h1>Weekly Wrapped</h1>
+    <h2>Your Activity Dates</h2>
+        <label for="date">Select an activity date:</label>
+        <select hx-post="/getWrapped" hx-target="#response" name="date" id="date" hx-trigger="load,change">
+            {{range .Dates}}
+                <option value="{{.}}">{{.}}</option>
+            {{else}}
+                <option value="">No activity yet</option>
+            {{end}}
+        </select>
+    <div id="response"></div>
 </body>
 </html>
