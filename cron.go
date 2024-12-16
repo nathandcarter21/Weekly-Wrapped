@@ -27,19 +27,15 @@ func loadData() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(id, artists)
 
 		vars["seed_type"] = "tracks"
 		songs, err := getUsersTopItems(accessToken.AccessToken, vars)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(id, songs)
+		fmt.Println("DONE")
 
-		err = addWrapped(db, id, artists, songs)
-		if err != nil {
-			log.Fatal(err)
-		}
+		_ = addWrapped(db, id, artists, songs)
 	}
 }
 

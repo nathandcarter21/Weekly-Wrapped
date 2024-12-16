@@ -1,20 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Hello World</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Wrapped</title>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h1>Weekly Wrapped</h1>
-    <h2>Your Activity Dates</h2>
-        <label for="date">Select an activity date:</label>
-        <select hx-post="/getWrapped" hx-target="#response" name="date" id="date" hx-trigger="load,change">
-            {{range .Dates}}
-                <option value="{{.}}">{{.}}</option>
-            {{else}}
-                <option value="">No activity yet</option>
-            {{end}}
-        </select>
-    <div id="response"></div>
+<body class="bg-gray-100 text-gray-900 font-sans">
+
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Weekly Wrapped</h1>
+
+        {{if .Dates}}
+        <div class="space-y-4">
+            <label for="date" class="block text-lg font-medium">Select a date:</label>
+            <select hx-post="/getWrapped" hx-target="#response" name="date" id="date" hx-trigger="load,change" class="w-32 p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {{range .Dates}}
+                    <option value="{{.}}" class="p-2">{{.}}</option>
+                {{else}}
+                    <option value="" class="p-2">No data yet</option>
+                {{end}}
+            </select>
+        </div>
+        {{else}}
+        <p class="text-lg text-center text-gray-600">Stay tuned for updates</p>
+        {{end}}
+
+        <div id="response" class="mt-4"></div>
+    </div>
+
 </body>
 </html>

@@ -97,7 +97,7 @@ func addWrapped(db *sql.DB, spotifyID string, artists, songs []string) error {
 }
 
 func getWrappedDates(db *sql.DB, spotifyID string) ([]time.Time, error) {
-	query := `select date from wraps where spotify_id = ?`
+	query := `select date from wraps where spotify_id = ? order by date desc`
 
 	rows, err := db.Query(query, spotifyID)
 	if err != nil {

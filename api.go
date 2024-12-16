@@ -57,6 +57,8 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "Error executing template", http.StatusInternalServerError)
 		}
+
+		return
 	}
 
 	tmplPath = filepath.Join("templates/home.html")
@@ -132,7 +134,7 @@ func signUpHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	fmt.Fprintf(w, `<p>Stay Tuned for Updates</p>`)
+	fmt.Fprintf(w, `<p>Stay tuned for updates</p>`)
 }
 
 func getWrappedHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,12 +143,7 @@ func getWrappedHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	userID, err := getUser(accessToken.AccessToken)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dbUser, err := getDBUser(db, userID)
+	dbUser, err := getDBUser(db, accessToken.SpotifyID)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -283,9 +280,11 @@ func requestAccessToken(code string) (*AccessToken, error) {
 		return nil, err
 	}
 
-	if accessToken.Error != "" {
-		return nil, errors.New(accessToken.Error)
+	user, err := getUser(accessToken.AccessToken)
+	if err != nil {
+		return nil, err
 	}
+	accessToken.SpotifyID = user
 
 	accessToken.ExpiresAt = time.Now().Add(time.Duration(accessToken.ExpiresIn-100) * time.Second)
 
@@ -326,6 +325,12 @@ func refreshAccessToken(refreshToken string) (*AccessToken, error) {
 
 	newToken.ExpiresAt = time.Now().Add(time.Duration(newToken.ExpiresIn-100) * time.Second)
 	newToken.RefreshToken = refreshToken
+
+	user, err := getUser(newToken.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	newToken.SpotifyID = user
 
 	return &newToken, nil
 }
