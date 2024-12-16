@@ -33,7 +33,16 @@ func signUp(db *sql.DB, spotifyId, refreshToken string) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(spotifyId, refreshToken)
+	eSpotifyId, err := encrypt(spotifyId)
+	if err != nil {
+		return err
+	}
+	eRefreshT, err := encrypt(refreshToken)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(eSpotifyId, eRefreshT)
 	if err != nil {
 		return fmt.Errorf("error executing statement: %v", err)
 	}
@@ -44,16 +53,26 @@ func signUp(db *sql.DB, spotifyId, refreshToken string) error {
 func getDBUser(db *sql.DB, spotifyId string) (string, error) {
 	query := `select spotify_id from users where spotify_id = ?`
 
+	eUserId, err := encrypt(spotifyId)
+	if err != nil {
+		return "", err
+	}
+
 	var userID string
-	err := db.QueryRow(query, spotifyId).Scan(&userID)
+	err = db.QueryRow(query, eUserId).Scan(&userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("user with ID %s not found", userID)
+			return "", fmt.Errorf("user with ID %s not found", eUserId)
 		}
 		return "", fmt.Errorf("error querying user: %w", err)
 	}
 
-	return userID, nil
+	cUserId, err := decrypt(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return cUserId, nil
 }
 
 func getUsers(db *sql.DB) (map[string]string, error) {
@@ -72,7 +91,15 @@ func getUsers(db *sql.DB) (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		users[id] = token
+		cId, err := decrypt(id)
+		if err != nil {
+			return nil, err
+		}
+		cToken, err := decrypt(token)
+		if err != nil {
+			return nil, err
+		}
+		users[cId] = cToken
 	}
 
 	err = rows.Err()
@@ -84,12 +111,16 @@ func getUsers(db *sql.DB) (map[string]string, error) {
 }
 
 func addWrapped(db *sql.DB, spotifyID string, artists, songs []string) error {
+	cSpotifyId, err := encrypt(spotifyID)
+	if err != nil {
+		return err
+	}
 
 	artistsJson, _ := json.Marshal(artists)
 	songsJson, _ := json.Marshal(songs)
 
 	query := `insert into wraps (spotify_id, date, songs, artists) values (?, ?, ?, ?)`
-	_, err := db.Exec(query, spotifyID, time.Now().Format("2006-01-02"), songsJson, artistsJson)
+	_, err = db.Exec(query, cSpotifyId, time.Now().Format("2006-01-02"), songsJson, artistsJson)
 	if err != nil {
 		return err
 	}
@@ -99,7 +130,12 @@ func addWrapped(db *sql.DB, spotifyID string, artists, songs []string) error {
 func getWrappedDates(db *sql.DB, spotifyID string) ([]time.Time, error) {
 	query := `select date from wraps where spotify_id = ? order by date desc`
 
-	rows, err := db.Query(query, spotifyID)
+	cSpotifyId, err := encrypt(spotifyID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(query, cSpotifyId)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +161,15 @@ func getWrappedDates(db *sql.DB, spotifyID string) ([]time.Time, error) {
 
 func getWrapped(db *sql.DB, spotifyId string, date string) (artists, songs []string, err error) {
 	query := `select artists, songs from wraps where spotify_id = ? and date = ?`
+
+	cSpotifyId, err := encrypt(spotifyId)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var artistJson string
 	var songJson string
-	err = db.QueryRow(query, spotifyId, date).Scan(&artistJson, &songJson)
+	err = db.QueryRow(query, cSpotifyId, date).Scan(&artistJson, &songJson)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil, err

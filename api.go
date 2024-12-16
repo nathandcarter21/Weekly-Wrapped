@@ -63,7 +63,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmplPath = filepath.Join("templates/home.html")
 
-	wrappedDates, err := getWrappedDates(db, dbUser)
+	wrappedDates, err := getWrappedDates(db, userID)
 	if err != nil {
 		log.Fatal(err)
 	}

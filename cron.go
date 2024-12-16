@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/url"
 )
@@ -20,7 +19,7 @@ func loadData() {
 		}
 
 		vars := map[string]string{}
-		vars["time_range"] = "short_term"
+		vars["time_range"] = "long_term"
 		vars["seed_type"] = "artists"
 
 		artists, err := getUsersTopItems(accessToken.AccessToken, vars)
@@ -33,7 +32,6 @@ func loadData() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("DONE")
 
 		_ = addWrapped(db, id, artists, songs)
 	}
